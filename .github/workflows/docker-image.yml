@@ -1,47 +1,35 @@
-name: Build Images
+name: Build and Deploy by Tag
+
 on:
   push:
+    # '모듈명@버전' 형식의 태그가 푸시될 때만 실행
     tags:
-      - '*@*' # Trigger on tags like webflux-cache@0.1
-  workflow_dispatch:
-    inputs:
-      module:
-        description: 'Module to build'
-        required: true
-        default: 'webflux-cache'
-      version: 
-        description: 'Version tag (e.g., 0.1)'
-        required: true
-        default: 'latest'
+      - '*@*'
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Parse Tag
-        id: parse
+      # 1. 태그에서 모듈명과 버전 분리 (예: webflux-cache@0.1)
+      - name: Extract Module and Version
+        id: parse_tag
         run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "MODULE=${{ inputs.module }}" >> $GITHUB_OUTPUT
-            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
-          else
-            # Extract from ref refs/tags/project@version
-            TAG_NAME=${GITHUB_REF#refs/tags/}
-            MODULE=${TAG_NAME%@*}
-            VERSION=${TAG_NAME#*@}
-            echo "MODULE=$MODULE" >> $GITHUB_OUTPUT
-            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-            echo "Parsed tag: Module=$MODULE, Version=$VERSION"
-          fi
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+          # GITHUB_REF_NAME은 'webflux-cache@0.1' 같은 태그명을 담고 있습니다.
+          TAG_NAME=${GITHUB_REF_NAME}
+          MODULE_NAME=$(echo $TAG_NAME | cut -d'@' -f1)
+          VERSION=$(echo $TAG_NAME | cut -d'@' -f2)
+          
+          echo "MODULE=$MODULE_NAME" >> $GITHUB_ENV
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          
+          echo "Building module: $MODULE_NAME with version: $VERSION"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -50,20 +38,32 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository_owner }}/${{ steps.parse.outputs.MODULE }}
-          tags: |
-            type=raw,value=${{ steps.parse.outputs.VERSION }}
-            type=raw,value=latest,enable=${{ steps.parse.outputs.VERSION != 'latest' }}
-
+      # 2. 이미지 빌드 및 태그 (추출한 버전을 사용)
       - name: Build and Push
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: ./${{ steps.parse.outputs.MODULE }}/Dockerfile
+          file: ./${{ env.MODULE }}/Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            ghcr.io/blupine/${{ env.MODULE }}:latest
+            ghcr.io/blupine/${{ env.MODULE }}:${{ env.VERSION }}
+            
+      # 3. k8s-homelab 저장소에 PR 생성하기
+      - name: Create Pull Request in k8s-homelab
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.K8S_HOMELAB_PAT }}
+          repository: blupine/k8s-homelab
+          branch: "deploy/${{ env.MODULE }}-${{ env.VERSION }}" # 새 브랜치 이름
+          base: main
+          title: "🚀 [Deploy] ${{ env.MODULE }} v${{ env.VERSION }}"
+          body: |
+            ## 배포 정보
+            - **모듈명**: ${{ env.MODULE }}
+            - **버전**: ${{ env.VERSION }}
+            - **요청자**: @${{ github.actor }}
+            
+            이 PR은 GitHub Actions에 의해 자동으로 생성되었습니다.
+            YAML 설정을 확인하신 후 승인(Merge)하시면 ArgoCD가 배포를 시작합니다.
+          commit-message: "chore: update ${{ env.MODULE }} image to ${{ env.VERSION }}"

@@ -48,22 +48,42 @@ jobs:
           tags: |
             ghcr.io/blupine/${{ env.MODULE }}:latest
             ghcr.io/blupine/${{ env.MODULE }}:${{ env.VERSION }}
-            
-      # 3. k8s-homelab 저장소에 PR 생성하기
-      - name: Create Pull Request in k8s-homelab
+
+      # 3. k8s-homelab 저장소 체크아웃
+      - name: Checkout k8s-homelab
+        uses: actions/checkout@v4
+        with:
+          repository: blupine/k8s-homelab
+          token: ${{ secrets.K8S_HOMELAB_PAT }}
+          path: k8s-homelab # k8s-homelab 폴더에 따로 다운로드
+
+      # 4. yq를 이용한 이미지 태그 업데이트
+      - name: Update Image Tag
+        run: |
+          TARGET_FILE="k8s-homelab/apps/${{ env.MODULE }}/deployment.yaml"
+          NEW_IMAGE="ghcr.io/blupine/${{ env.MODULE }}:${{ env.VERSION }}"
+          
+          # yq를 사용하여 container name이 모듈명과 일치하는 요소의 image 값을 변경
+          # 만약 컨테이너 이름이 다를 수 있으니, 첫 번째 컨테이너의 이미지를 바꾸는 식으로 설정:
+          yq -i ".spec.template.spec.containers[0].image = \"$NEW_IMAGE\"" $TARGET_FILE
+          
+          # [중요] 파일이 진짜 바뀌었는지 눈으로 확인 (로그에 찍힘)
+          echo "====변경된 이미지 라인 확인===="
+          grep "image:" $TARGET_FILE
+
+      # 5. PR 생성
+      - name: Create Pull Request
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.K8S_HOMELAB_PAT }}
-          repository: blupine/k8s-homelab
-          branch: "deploy/${{ env.MODULE }}-${{ env.VERSION }}" # 새 브랜치 이름
+          path: k8s-homelab # 반드시 체크아웃한 경로를 지정해야 합니다!
+          branch: "deploy/${{ env.MODULE }}-${{ env.VERSION }}"
           base: main
           title: "🚀 [Deploy] ${{ env.MODULE }} v${{ env.VERSION }}"
-          body: |
-            ## 배포 정보
-            - **모듈명**: ${{ env.MODULE }}
-            - **버전**: ${{ env.VERSION }}
-            - **요청자**: @${{ github.actor }}
-            
-            이 PR은 GitHub Actions에 의해 자동으로 생성되었습니다.
-            YAML 설정을 확인하신 후 승인(Merge)하시면 ArgoCD가 배포를 시작합니다.
           commit-message: "chore: update ${{ env.MODULE }} image to ${{ env.VERSION }}"
+          body: |
+            ## 배포 자동화 알림
+            - 모듈: ${{ env.MODULE }}
+            - 신규 버전: ${{ env.VERSION }}
+            
+            내용을 확인하신 후 Merge 해주세요.

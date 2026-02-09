@@ -1,10 +1,7 @@
 package io.blupine.lab.webflux.controller;
 
 import io.blupine.lab.webflux.service.CacheService;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -31,5 +28,15 @@ public class CacheController {
     @GetMapping("/no-cache/mono/{id}")
     public Mono<String> getUncachedMono(@PathVariable String id) {
         return cacheService.getUncachedMono(id);
+    }
+
+    @PutMapping("/mono/{id}")
+    public Mono<String> refreshMono(@PathVariable String id) {
+        return cacheService.refreshMono(id);
+    }
+
+    @DeleteMapping("")
+    public Mono<Void> clearCache() {
+        return cacheService.clearCache();
     }
 }

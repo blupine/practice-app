@@ -32,4 +32,14 @@ public class CacheController {
     public Mono<String> getUncachedMono(@PathVariable String id) {
         return cacheService.getUncachedMono(id);
     }
+
+    @org.springframework.web.bind.annotation.PutMapping("/mono/{id}")
+    public Mono<String> refreshMono(@PathVariable String id) {
+        return cacheService.refreshMono(id);
+    }
+
+    @org.springframework.web.bind.annotation.DeleteMapping("")
+    public Mono<Void> clearCache() {
+        return cacheService.clearCache();
+    }
 }

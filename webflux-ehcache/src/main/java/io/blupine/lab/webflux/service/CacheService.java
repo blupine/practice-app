@@ -2,6 +2,8 @@ package io.blupine.lab.webflux.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CachePut;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -38,5 +40,17 @@ public class CacheService {
         log.info("getUncachedMono 실행 - id: {}", id);
         return Mono.just("Uncached Mono Result for " + id)
                 .delayElement(Duration.ofMillis(500));
+    }
+
+    @CachePut(value = "monos", key = "#id")
+    public Mono<String> refreshMono(String id) {
+        log.info("refreshMono 실행 - id: {}", id);
+        return Mono.just("Refreshed Mono Result for " + id);
+    }
+
+    @CacheEvict(value = {"monos", "fluxes"}, allEntries = true)
+    public Mono<Void> clearCache() {
+        log.info("All Caches Cleared");
+        return Mono.empty();
     }
 }

@@ -4,9 +4,6 @@ spring:
   webflux:
     base-path: /app-ehcache
 
-server:
-  port: 8082
-
 management:
   endpoints:
     web:

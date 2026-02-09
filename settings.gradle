@@ -3,4 +3,4 @@ plugins {
 }
 
 rootProject.name = 'practice-app'
-include 'webflux-cache'
+include 'webflux-cache', 'webflux-ehcache'

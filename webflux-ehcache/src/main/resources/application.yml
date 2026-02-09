@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: webflux-ehcache
+  webflux:
+    base-path: /app-ehcache
+
+server:
+  port: 8082
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}

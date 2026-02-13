@@ -12,15 +12,18 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
+import io.micrometer.core.instrument.MeterRegistry;
 
 @Aspect
 @Component
 public class ReactorCacheAspect {
 
     private final ReactorCacheManager cacheManager;
+    private final MeterRegistry meterRegistry;
 
-    public ReactorCacheAspect(ReactorCacheManager cacheManager) {
+    public ReactorCacheAspect(ReactorCacheManager cacheManager, MeterRegistry meterRegistry) {
         this.cacheManager = cacheManager;
+        this.meterRegistry = meterRegistry;
     }
 
     @Around("@annotation(reactorCacheable)")
@@ -39,6 +42,7 @@ public class ReactorCacheAspect {
         if (cache != null) {
             Object cachedValue = cache.get(key);
             if (cachedValue != null) {
+                meterRegistry.counter("cache.gets", "cache", cacheName, "result", "hit").increment();
                 MethodSignature signature = (MethodSignature) joinPoint.getSignature();
                 Class<?> returnType = signature.getReturnType();
 
@@ -47,6 +51,8 @@ public class ReactorCacheAspect {
                 } else if (Flux.class.isAssignableFrom(returnType) && cachedValue instanceof List) {
                     return Flux.fromIterable((List<?>) cachedValue);
                 }
+            } else {
+                meterRegistry.counter("cache.gets", "cache", cacheName, "result", "miss").increment();
             }
         }
 
@@ -56,6 +62,7 @@ public class ReactorCacheAspect {
             return ((Mono<?>) result).doOnNext(value -> {
                 if (cache != null) {
                     cache.put(key, value);
+                    meterRegistry.counter("cache.puts", "cache", cacheName).increment();
                 }
             });
         } else if (result instanceof Flux) {
@@ -63,6 +70,7 @@ public class ReactorCacheAspect {
                     .doOnNext(list -> {
                         if (cache != null) {
                             cache.put(key, list);
+                            meterRegistry.counter("cache.puts", "cache", cacheName).increment();
                         }
                     })
                     .flatMapMany(Flux::fromIterable);

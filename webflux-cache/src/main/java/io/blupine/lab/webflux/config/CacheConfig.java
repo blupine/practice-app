@@ -16,6 +16,7 @@ public class CacheConfig {
         CaffeineCacheManager cacheManager = new CaffeineCacheManager();
         cacheManager.setAsyncCacheMode(true); // Enable async mode for WebFlux/Mono/Flux support
         cacheManager.setCaffeine(Caffeine.newBuilder()
+                .recordStats()
                 .expireAfterWrite(Duration.ofMinutes(1))
                 .maximumSize(100));
         return cacheManager;

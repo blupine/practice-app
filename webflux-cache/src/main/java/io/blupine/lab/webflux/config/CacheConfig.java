@@ -13,7 +13,7 @@ public class CacheConfig {
 
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager();
+        CaffeineCacheManager cacheManager = new CaffeineCacheManager("monos", "fluxes");
         cacheManager.setAsyncCacheMode(true); // Enable async mode for WebFlux/Mono/Flux support
         cacheManager.setCaffeine(Caffeine.newBuilder()
                 .recordStats()

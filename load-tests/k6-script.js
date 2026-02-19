@@ -24,7 +24,16 @@ export default function () {
 
     // Note: endpoints are /api/cache/mono/{id}
     // The BASE_URL should include the info like https://domain.com/app-name
-    const res = http.get(`${BASE_URL}/api/cache/mono/${id}`);
+
+    const params = {
+        headers: {},
+    };
+
+    if (__ENV.HOST_HEADER) {
+        params.headers['Host'] = __ENV.HOST_HEADER;
+    }
+
+    const res = http.get(`${BASE_URL}/api/cache/mono/${id}`, params);
 
     check(res, {
         'is status 200': (r) => r.status === 200,
